@@ -1,0 +1,5 @@
+car car,30000,5,seat;steering wheel;carpet;windshield;radio radio,200,0,
+steering wheel,null,3,leather;plastic;foam
+seat,null,3,leather;foam;plastic plastic,1300,0, foam,7000,0,
+leather,4000,0, carpet,1000,1,plastic windshield,5000,1,glass
+glass,2000,1,sand sand,0,0,

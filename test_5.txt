@@ -1,0 +1,6 @@
+RANDOM OBJECT metal,49.99,0, plastic,39.99,0, buttons,.87,1,rubber
+processor,12.34,2,wires;silicon fan blades,3.5,1,plastic
+motor,2.16,1,metal fan,33.33,6,buttons;fan
+blades;motor;wires;frame;processor wires,7.75,2,plastic;metal
+frame,5.67,1,plastic RANDOM OBJECT,3.50,4,metal;rubber;silicon;plastic
+rubber,29.99,0, silicon,200.61,0,

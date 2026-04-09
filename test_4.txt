@@ -1,0 +1,3 @@
+Powerpuff Girls Powerpuff Girls,100000000,5,Sugar;Spice;Everything
+Nice;Chemical X;Cauldron Sugar,3,0, Spice,1.25,0, Everything Nice,15000,0,
+Chemical X,null,0, Cauldron,25,1,Metal Metal,50,0,

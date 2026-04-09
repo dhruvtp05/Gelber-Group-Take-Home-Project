@@ -1,0 +1,5 @@
+sandwich mayonnaise,1,0, sand,0,0, bread,3,3,yeast;water;flour flour,1,0,
+water,1,0, yeast,1,0,
+sandwich,10,6,mayonnaise;sand;bread;mozzarella;bacon;salt bacon,3,1,pig
+pig,1000,0, salt,1,2,sea salt;iodine iodine,40,0, sea salt,.5,0,
+mozzarella,3,0,
