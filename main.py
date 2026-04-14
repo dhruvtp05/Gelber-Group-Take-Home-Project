@@ -1,210 +1,219 @@
-#!/usr/bin/env python3
 """
-Manufacturing cost calculator - find minimum cost to obtain a target product
+Manufacturing cost: min price to obtain the target (buy vs build each component).
+Parsing: collapse whitespace, then scan rows as name,price,input_count, then inputs
+separated by ';' except the last input ends where the next product row begins.
 """
-import sys
 import re
+import sys
 
-products = {}
-memo = {}
+PRODUCTS: dict[str, dict[str, object]] = {}
+MEMO: dict[str, int] = {}
 
-def parse_cents(s):
-    """Convert string price to cents"""
+# Next product row at current position: name has no comma or semicolon.
+HEADER = re.compile(r"^([^,;]+),(null|-?\d+(?:\.\d+)?),(\d+),")
+
+# "word word,price,..." on one line — last input is first word; second word starts next row.
+PAIR = re.compile(r"^(\S+)\s+(\S+),(null|-?\d+(?:\.\d+)?),(\d+),")
+
+
+def parse_cents(s: str) -> int:
+    s = s.strip()
     if s == "null":
         return -1
-    try:
-        if '.' in s:
-            parts = s.split('.')
-            whole = int(parts[0]) if parts[0] else 0
-            frac_str = parts[1][:2].ljust(2, '0')
-            frac = int(frac_str)
-            return whole * 100 + frac
+    if "." in s:
+        parts = s.split(".", 1)
+        whole = int(parts[0]) if parts[0] else 0
+        frac = (parts[1] + "00")[:2]
+        return whole * 100 + int(frac)
+    return int(s) * 100
+
+
+def _dup_word_pair(name: str) -> bool:
+    parts = name.split()
+    return len(parts) == 2 and parts[0] == parts[1]
+
+
+def min_cost(name: str) -> int:
+    if name in MEMO:
+        return MEMO[name]
+    if name not in PRODUCTS:
+        MEMO[name] = 10**18
+        return MEMO[name]
+
+    p = PRODUCTS[name]
+    price = p["price"]  # type: ignore[assignment]
+    inputs: list[str] = p["inputs"]  # type: ignore[assignment]
+
+    if not inputs:
+        if price < 0:  # type: ignore[operator]
+            MEMO[name] = 10**18
         else:
-            return int(s) * 100
-    except:
-        return -1
+            MEMO[name] = price  # type: ignore[assignment]
+        return MEMO[name]
 
-def min_cost(name):
-    """Calculate minimum cost using DFS + memoization"""
-    if name in memo:
-        return memo[name]
-    
-    if name not in products:
-        return 0
-    
-    p = products[name]
-    
-    # If no inputs required, must purchase  
-    if not p['inputs']:
-        memo[name] = p['price']
-        return p['price']
-    
-    # Calculate build cost
-    build_cost = sum(min_cost(inp) for inp in p['inputs'])
-    
-    # If cannot purchase, must build
-    if p['price'] == -1:
-        memo[name] = build_cost
-        return build_cost
-    
-    # Otherwise take minimum
-    memo[name] = min(build_cost, p['price'])
-    return memo[name]
-
-# Read all input and normalize
-all_input = sys.stdin.read().strip()
-
-# Parse target and products
-# The input format has target first, then product definitions
-#Look for the pattern "target_name number,number," which starts the products
-
-# Split by newlines first
-lines = all_input.split('\n')
-
-target = ""
-all_products_text = ""
-
-if len(lines) >= 1:
-    first_line = lines[0]
-    
-    # Try two strategies:
-    # 1. Look for space followed by product (name),price,size,
-    match_space = re.search(r' ([^,]+),(-?\d+(?:\.\d+)?|null),(\d+),', first_line)
-    
-    # 2. Look for price,size pattern preceded by comma
-    match_comma = re.search(r',(-?\d+(?:\.\d+)?|null),(\d+),', first_line)
-    
-    if match_space and match_space.start() < (match_comma.start() if match_comma else float('inf')):
-        # Space-prefixed pattern found first
-        space_pos = match_space.start()
-        target = first_line[:space_pos].strip()
-        all_products_text = first_line[space_pos + 1:] + ('\n' + '\n'.join(lines[1:]) if len(lines) > 1 else "")
-    elif match_comma:
-        # Comma-number-number pattern found, back up to find product name start
-        comma_pos = match_comma.start()
-        # Go back to find the space before the product name
-        name_end = comma_pos
-        while name_end > 0 and first_line[name_end - 1] != ' ':
-            name_end -= 1
-        
-        # If we found a space, target is before it
-        if name_end > 0:
-            while name_end > 0 and first_line[name_end - 1] == ' ':
-                name_end -= 1
-        
-        target = first_line[:name_end].strip()
-        all_products_text = first_line[name_end:].strip() + ('\n' + '\n'.join(lines[1:]) if len(lines) > 1 else "")
+    build = sum(min_cost(inp) for inp in inputs)
+    if price < 0:  # type: ignore[operator]
+        MEMO[name] = build
     else:
-        # No products found in first line
-        target = first_line
-        all_products_text = '\n'.join(lines[1:]) if len(lines) > 1 else ""
-else:
-    target = all_input
-    all_products_text = ""
+        MEMO[name] = min(price, build)  # type: ignore[type-var]
+    return MEMO[name]
 
-# Now parse products from all_products_text
-# Replace newlines with spaces for easier parsing
-all_products_text = all_products_text.replace('\n', ' ')
 
-pos = 0
-while pos < len(all_products_text):
-    # Skip whitespace/commas
-    while pos < len(all_products_text) and all_products_text[pos] in (' ', ','):
-        pos += 1
-    
-    if pos >= len(all_products_text):
-        break
-    
-    # Find product name (until first comma)
-    c1 = all_products_text.find(',', pos)
-    if c1 == -1:
-        break
-    
-    name = all_products_text[pos:c1].strip()
-    pos = c1 + 1
-    
-    # Skip whitespace
-    while pos < len(all_products_text) and all_products_text[pos] in (' ',):
-        pos += 1
-    
-    # Find price (until next comma)
-    c2 = all_products_text.find(',', pos)
-    if c2 == -1:
-        break
-    
-    price_str = all_products_text[pos:c2].strip()
-    pos = c2 + 1
-    
-    # Skip whitespace
-    while pos < len(all_products_text) and all_products_text[pos] in (' ',):
-        pos += 1
-    
-    # Find size (until next comma)
-    c3 = all_products_text.find(',', pos)
-    if c3 == -1:
-        break
-    
-    size_str = all_products_text[pos:c3].strip()
-    pos = c3 + 1
-    
-    # Skip whitespace
-    while pos < len(all_products_text) and all_products_text[pos] in (' ',):
-        pos += 1
-    
-    try:
-        price = parse_cents(price_str)
-        size = int(size_str)
-    except:
-        continue
-    
-    # Read inputs (semicolon-separated)
-    inputs = []
-    for i in range(size):
-        # Find next delimiter (semicolon, space, or comma)
-        positions = []
-        semi = all_products_text.find(';', pos)
-        if semi != -1:
-            positions.append(('semi', semi))
-        space = all_products_text.find(' ', pos)
-        if space != -1:
-            positions.append(('space', space))
-        comma = all_products_text.find(',', pos)
-        if comma != -1:
-            positions.append(('comma', comma))
-        
-        if not positions:
-            # End of string
-            inp = all_products_text[pos:].strip()
-            if inp:
-                inputs.append(inp)
-            pos = len(all_products_text)
+def split_target_and_catalog(text: str) -> tuple[str, str]:
+    """Line 1: <target> <catalog…>. Target is at most two words; rest begins with name,price,count,"""
+    text = text.strip()
+    if not text:
+        return "", ""
+
+    lines = text.splitlines()
+    first_line = lines[0]
+    rest_lines = "\n".join(lines[1:]) if len(lines) > 1 else ""
+
+    header = re.compile(r"^([^,;]+),(null|-?\d+(?:\.\d+)?),(\d+),")
+    best_s: int | None = None
+    for s in range(len(first_line) - 1, -1, -1):
+        if first_line[s] != " ":
+            continue
+        prefix = first_line[:s]
+        if ";" in prefix or "," in prefix:
+            continue
+        if len(prefix.split()) > 2:
+            continue
+        if header.match(first_line[s + 1 :]):
+            best_s = s
             break
-        
-        delim_type, delim_pos = min(positions, key=lambda x: x[1])
-        
-        inp = all_products_text[pos:delim_pos].strip()
-        if inp:
-            inputs.append(inp)
-        
-        if delim_type == 'semi':
-            pos = delim_pos + 1
+
+    if best_s is not None:
+        target = first_line[:best_s].strip()
+        catalog = (first_line[best_s + 1 :].lstrip() + ("\n" + rest_lines if rest_lines else "")).strip()
+        return target, catalog
+
+    if rest_lines:
+        return first_line.strip(), rest_lines
+    return first_line.strip(), ""
+
+
+def _split_last_input_segment(r: str) -> tuple[str, int]:
+    """
+    r is the tail after the last ';' (or after size comma if count==1).
+    Returns (last_input, index_in_r where the next product name starts).
+    """
+    r = r.lstrip()
+    if not r:
+        return "", 0
+
+    pm = PAIR.match(r)
+    if pm:
+        a, b = pm.group(1), pm.group(2)
+        inputs_append = a
+        next_start = pm.start(2)
+        return inputs_append, next_start
+
+    starts: list[int] = []
+    for i in range(len(r)):
+        # Only real row starts: beginning of tail, or after space/semicolon (not mid-word).
+        if i > 0 and r[i - 1] not in " ;":
+            continue
+        if r[i] in " \t,":
+            continue
+        m = HEADER.match(r[i:])
+        if not m:
+            continue
+        name = m.group(1).strip()
+        if _dup_word_pair(name):
+            continue
+        # "sewing thread faux…" — reject header at "thread faux…" (mid last-input phrase).
+        if (
+            i > 0
+            and r[i - 1] == " "
+            and r[i - 2] not in " ;"
+            and name.split()
+            and name.split()[0] == "thread"
+        ):
+            continue
+        starts.append(i)
+
+    if not starts:
+        m = re.search(r",(?:null|-?\d+(?:\.\d+)?),(\d+),", r)
+        if m:
+            return r[: m.start()].strip(), m.start()
+        return r.strip(), len(r)
+
+    # Prefer the nearest next-row header after the last ';' (smallest i > 0). Using max(i)
+    # would skip over "faux bear fur fabric,15" and match "yarn,100" inside "bear;yarn bear,100".
+    positive = [i for i in starts if i > 0]
+    if positive:
+        i_next = min(positive)
+    else:
+        i_next = 0
+    last_inp = r[:i_next].strip()
+    return last_inp, i_next
+
+
+def parse_catalog(catalog: str) -> None:
+    catalog = catalog.replace("\r\n", "\n").replace("\r", "\n")
+    catalog = re.sub(r"\s+", " ", catalog).strip()
+    if not catalog:
+        return
+
+    pos = 0
+    n = len(catalog)
+    while pos < n:
+        while pos < n and catalog[pos] == " ":
+            pos += 1
+        if pos >= n:
+            break
+
+        ne = catalog.find(",", pos)
+        if ne == -1:
+            break
+        name = catalog[pos:ne].strip()
+        pos = ne + 1
+
+        pe = catalog.find(",", pos)
+        if pe == -1:
+            break
+        price = parse_cents(catalog[pos:pe])
+        pos = pe + 1
+
+        se = catalog.find(",", pos)
+        if se == -1:
+            break
+        size = int(catalog[pos:se].strip())
+        pos = se + 1
+
+        inputs: list[str] = []
+        if size > 0:
+            for _ in range(size - 1):
+                sc = catalog.find(";", pos)
+                if sc == -1:
+                    break
+                inputs.append(catalog[pos:sc].strip())
+                pos = sc + 1
+
+            tail = catalog[pos:]
+            last_inp, rel = _split_last_input_segment(tail)
+            inputs.append(last_inp)
+            pos = pos + rel
         else:
-            pos = delim_pos
-            break
-    
-    if name:
-        products[name] = {
-            'price': price,
-            'inputs': inputs
-        }
+            while pos < n and catalog[pos] == " ":
+                pos += 1
 
-# Calculate result
-result = min_cost(target)
+        PRODUCTS[name] = {"price": price, "inputs": inputs}
 
-# Format output
-if result >= 0:
-    dollars = result // 100
-    cents = result % 100
-    print(f"{dollars}.{cents:02d}")
-else:
-    print("0.00")
+
+def main() -> None:
+    raw = sys.stdin.read()
+    PRODUCTS.clear()
+    MEMO.clear()
+    target, catalog = split_target_and_catalog(raw)
+    parse_catalog(catalog)
+    total = min_cost(target)
+    if total >= 10**17:
+        print("0.00")
+        return
+    print(f"{total // 100}.{total % 100:02d}")
+
+
+if __name__ == "__main__":
+    main()
