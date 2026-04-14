@@ -8,12 +8,6 @@ Given a **target** product and a **catalog** of products (each with an optional 
 
 From this directory:
 
-**PowerShell**
-
-```powershell
-Get-Content test_1.txt | python main.py
-```
-
 **cmd**
 
 ```cmd
@@ -31,13 +25,6 @@ Use `test_1.txt` … `test_5.txt`. If `python` fails, try `py`.
 | `test_3.txt` | `61.00` (teddy bear) |
 | `test_4.txt` | `100000000.00` |
 | `test_5.txt` | `3.50` (depends on catalog; buy vs build) |
-
-## Dependencies
-
-- Python 3.x  
-- Standard library only: `sys`, `re`
-
----
 
 
 ## Quick debug checklist
