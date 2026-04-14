@@ -1,58 +1,114 @@
-# Gelber Group Take Home Project
+# Gelber Group Take Home — Manufacturing Cost
 
-## Overview
-This project implements a manufacturing cost calculator in Python. Given a target product and a list of available products (each with a purchase price and optional manufacturing inputs), the program calculates the minimum cost to produce the target product. The decision for each component is whether to purchase it outright or manufacture it using its inputs, choosing the cheaper option recursively.
+## What it does
 
-## Problem Statement
-You are given:
-- A target product name (e.g., "teddy bear")
-- A list of products, each defined by:
-  - Name
-  - Purchase price (in dollars and cents, e.g., "12.34")
-  - Size (number of inputs, or 0 if no inputs)
-  - If size > 0, a list of input products (each with quantity and name)
+Given a **target** product and a **catalog** of products (each with an optional buy price and a recipe: ordered list of inputs), the program prints the **minimum dollars-and-cents cost** to obtain the target. For every product you may **buy** at its list price or **build** by paying the sum of minimum costs of its inputs (recursively). Internal math uses **integer cents**; stdout prints **`dollars.cc`** (e.g. `61.00`).
 
-The goal is to compute the minimum total cost to obtain the target product, where for each product, you can either:
-- Buy it directly at its purchase price
-- Manufacture it using its inputs (each input's cost multiplied by quantity, plus the product's own manufacturing cost if applicable—wait, actually, the purchase price is for buying, and manufacturing cost is the sum of input costs)
+## How to run
 
-From the code: The purchase price is the cost to buy, and manufacturing cost is the sum of costs of inputs (each input's min cost * quantity).
+From this directory:
 
-The program must parse input from stdin (redirected from a file) and output the minimum cost in cents (as an integer).
+**PowerShell**
 
-## Solution Approach
-- **Parsing**: Use regular expressions to extract the target product and product definitions from the input. Handle variations like space-separated or comma-separated formats.
-- **Algorithm**: Depth-First Search (DFS) with memoization to compute the minimum cost for each product. For each product:
-  - If it has no inputs (size 0), cost is its purchase price.
-  - Otherwise, cost is the minimum of: purchase price, or sum of (quantity * min_cost(input)) for all inputs.
-- **Memoization**: Use a dictionary to cache computed costs to avoid redundant calculations.
-- **Output**: Print the minimum cost for the target product in cents.
+```powershell
+Get-Content test_1.txt | python main.py
+```
 
-## Code Structure
-- `main.py`: Main script containing all logic.
-  - `parse_cents(price_str)`: Converts dollar.cents string to integer cents.
-  - `min_cost(product, products, memo)`: Recursive function with memoization to compute min cost.
-  - Input parsing: Uses regex to find target and product lines.
-  - Main execution: Reads from stdin, parses, computes, prints result.
+**cmd**
 
-## How to Run
-1. Ensure Python 3 is installed.
-2. Run: `python main.py < test_X.txt` (replace X with 1-5 for different test cases).
-3. Output: The minimum cost in cents (e.g., 12300 for $123.00).
+```cmd
+type test_1.txt | python main.py
+```
 
-## Test Cases
-- `test_1.txt`: Simple case, expected output 12300.
-- `test_2.txt`: Another simple case, expected output 10.
-- `test_3.txt` to `test_5.txt`: More complex cases with multiple products and dependencies. Currently, the program returns 0.00 for these (parsing issues need fixing).
+Use `test_1.txt` … `test_5.txt`. If `python` fails, try `py`.
+
+**Expected outputs (reference)**
+
+| File        | Approx. expected |
+|------------|------------------|
+| `test_1.txt` | `25800.00` (car) |
+| `test_2.txt` | `10.00` (sandwich) |
+| `test_3.txt` | `61.00` (teddy bear) |
+| `test_4.txt` | `100000000.00` |
+| `test_5.txt` | `3.50` (depends on catalog; buy vs build) |
 
 ## Dependencies
-- Python 3.x
-- Standard libraries: `sys`, `re`, `collections`
 
-## Notes for Study
-- **Parsing Challenges**: Input format varies (spaces vs commas), so regex handles both.
-- **Recursion with Memo**: Prevents exponential time by caching results.
-- **Cost Calculation**: Always compare buy vs build for each product.
-- **Edge Cases**: Products with no inputs, circular dependencies (not handled, assumes acyclic), large inputs.
+- Python 3.x  
+- Standard library only: `sys`, `re`
 
-This implementation passes tests 1 and 2 but needs debugging for 3-5.
+---
+
+## How to study this codebase
+
+Read in this order — each layer builds on the last.
+
+### 1. Core economics (`min_cost`)
+
+Open `min_cost` in `main.py`. That is the whole optimization:
+
+- **Memoization** (`MEMO`): each product’s minimum cost is computed once per run.
+- **Unknown product**: treated as infinitely expensive (`10**18`) so recipes that reference missing items don’t silently look cheap.
+- **No inputs (`size` 0 in data → empty `inputs`)**: you must **buy**; `null` / unpurchasable price → infinite cost.
+- **Has inputs**: cost = **min**(purchase price if not `null`, **sum** of `min_cost` over each input name).
+
+There is no separate “quantity × input” in the parsed structure: each listed input contributes **one** `min_cost` term in the sum (matches the assignment’s row format).
+
+**Study tip:** Trace `min_cost("teddy bear")` on paper after you’ve parsed `test_3.txt` into `PRODUCTS` — compare buy vs build at each node.
+
+### 2. Money (`parse_cents`)
+
+Prices become **integer cents**. `"null"` → `-1` (meaning “not for sale” / must build if inputs exist). This keeps floating-point out of comparisons.
+
+### 3. Splitting target vs catalog (`split_target_and_catalog`)
+
+The first line of stdin mixes **target** (at most **two words**) and the start of the **catalog** with **no** comma/semicolon in the target part. The code finds the **rightmost** space where:
+
+- the left part has ≤ 2 words and no `,` / `;`, and  
+- the right part begins like a product row: `name,price_or_null,count,`.
+
+**Study tip:** Try malformed first lines mentally — why “rightmost” space matters when product names can be long.
+
+### 4. Catalog scan (`parse_catalog`)
+
+- **Normalize**: `re.sub(r"\s+", " ", …)` so wrapped PDF-style line breaks don’t break parsing.
+- **Per product**: read `name`, `price`, `input_count`, then:
+  - for `count - 1` inputs: split on **`;`**
+  - **last input**: everything after the last `;` until the **next product row** starts — not necessarily at the next `;` (because the last segment can contain commas inside names).
+
+So the subtle part is **only** the boundary between the last input of product A and the **first field (name)** of product B.
+
+### 5. Last input boundary (`_split_last_input_segment`)
+
+This function takes the **tail** after the last `;` (or the whole input list when count is 1) and returns `(last_input_string, offset_where_next_product_starts)`.
+
+It uses:
+
+- **`PAIR`**: when the tail looks like `word1 word2,price,count,` — the last input is `word1`; `word2` starts the next product (handles things like `yarn bear,100,...`).
+- Else **`HEADER`** matches at **row boundaries** (start of tail, or after space/semicolon) to find candidate **next product** headers, with guards for:
+  - duplicate-word product names (`car car`, …) via `_dup_word_pair`
+  - false headers inside a long last-input phrase (e.g. `sewing thread faux…` — rejecting spurious `thread …` headers)
+- Among valid next-row starts with index **> 0**, take **`min`** (nearest next header), not `max` — otherwise you attach the wrong row to the previous product’s last input.
+
+**Study tip:** Copy a messy tail from `test_3.txt` into a scratch string after normalization and step through `_split_last_input_segment` by hand once; that’s the fastest way to “get” the parser.
+
+### 6. Entry point (`main`)
+
+Clears global `PRODUCTS` and `MEMO`, parses stdin, runs `min_cost(target)`, prints `dollars.cc` or `0.00` if the cost is still “infinite” (guard for missing/unbuildable targets).
+
+---
+
+## Quick debug checklist
+
+- Wrong answer but plausible: re-check **buy vs build** on paper for the target and its dependencies.
+- Garbage product names in `PRODUCTS`: almost always **last-input / next-row** boundary in `_split_last_input_segment`.
+- `0.00`: target missing from catalog or effectively unbuildable and unbuyable.
+
+---
+
+## Files
+
+| File        | Role |
+|------------|------|
+| `main.py`  | All logic: parse + DP/memo + stdout |
+| `test_*.txt` | Sample stdin for the assignment |
