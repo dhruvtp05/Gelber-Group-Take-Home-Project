@@ -1,8 +1,8 @@
-# Gelber Group Take Home — Manufacturing Cost
+# Manufacturing Cost Calculator
 
 ## What it does
 
-Given a **target** product and a **catalog** of products (each with an optional buy price and a recipe: ordered list of inputs), the program prints the **minimum dollars-and-cents cost** to obtain the target. For every product you may **buy** at its list price or **build** by paying the sum of minimum costs of its inputs (recursively). Internal math uses **integer cents**; stdout prints **`dollars.cc`** (e.g. `61.00`).
+Given a **target** product and a **catalog** of products (each with an optional buy price and a recipe: ordered list of inputs), the program prints the **minimum dollars-and-cents cost** to obtain the target. For every product you may **buy** at its list price or **build** by paying the sum of the minimum costs of its inputs (recursively). Internal math uses **integer cents**; stdout prints **`dollars.cc`** (e.g. `61.00`).
 
 ## How to run
 
