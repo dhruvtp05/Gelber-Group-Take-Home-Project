@@ -1,4 +1,4 @@
-# Manufacturing Cost Calculator
+# Manufacturing Cost Calculator - Gelber Group Take-Home Assessment
 
 ## What it does
 
